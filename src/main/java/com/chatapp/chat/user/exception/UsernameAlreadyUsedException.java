@@ -1,7 +1,7 @@
 package com.chatapp.chat.user.exception;
 
 public class UsernameAlreadyUsedException extends RuntimeException {
-  public UsernameAlreadyUsedException(String message) {
-    super(message);
-  }
+    public UsernameAlreadyUsedException(String username) {
+        super("Username already in use: " + username);
+    }
 }

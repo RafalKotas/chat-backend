@@ -1,4 +1,4 @@
-# 3.9 GlobalExceptionHandler - Centralized Error Handling
+# GlobalExceptionHandler - Centralized Error Handling
 
 This document explains the architectural decision using a **global exception handler** and describes how it works 
 within the application.
