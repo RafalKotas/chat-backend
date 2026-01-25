@@ -27,6 +27,9 @@ class ChatApplicationTests {
 	}
 
 	@Test
-	void contextLoads() {}
+	void contextLoads() {
+		// This test is intentionally left empty.
+		// It verifies that the Spring ApplicationContext loads without any issues.
+	}
 }
 
