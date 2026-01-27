@@ -11,13 +11,13 @@ if (-not $env:SONAR_TOKEN) {
 # Define Maven command arguments
 $mvnCommand = @(
     "clean",
-    "verify",
+    "test",
+    "jacoco:report",
     "sonar:sonar",
     "-Dsonar.projectKey=chat-backend",
     "-Dsonar.projectName=Chat Backend",
     "-Dsonar.host.url=http://localhost:9000",
     "-Dsonar.token=$env:SONAR_TOKEN",
-    "-Dsonar.java.binaries=target/classes",
     "-Dsonar.coverage.jacoco.xmlReportPaths=target/site/jacoco/jacoco.xml"
 )
 

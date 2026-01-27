@@ -25,6 +25,11 @@ public class UserService {
             throw new EmailAlreadyUsedException(user.getEmail());
         }
 
+        if (userRepository.existsByUsername(user.getUsername())) {
+            log.warn("Registration failed: username {} already in use", user.getUsername());
+            throw new UsernameAlreadyUsedException(user.getUsername());
+        }
+
         log.debug("Saving new user to the database: email={} username={}",
                 user.getEmail(), user.getUsername());
 

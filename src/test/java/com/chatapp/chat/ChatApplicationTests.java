@@ -1,5 +1,6 @@
 package com.chatapp.chat;
 
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.DynamicPropertyRegistry;
@@ -10,8 +11,10 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 
 @SpringBootTest
 @Testcontainers
+@DisplayName("ChatApplication context load tests")
 class ChatApplicationTests {
 
+	@SuppressWarnings("resource")
 	@Container
 	static PostgreSQLContainer<?> postgres =
 			new PostgreSQLContainer<>("postgres:16")
@@ -27,9 +30,16 @@ class ChatApplicationTests {
 	}
 
 	@Test
+	@DisplayName("Spring context should load successfully with Testcontainers")
 	void contextLoads() {
-		// This test is intentionally left empty.
-		// It verifies that the Spring ApplicationContext loads without any issues.
+		// given
+		// (no setup needed)
+
+		// when
+		// Spring Boot starts context during test init
+
+		// then
+		// test passes if no exception is thrown
 	}
 }
 
