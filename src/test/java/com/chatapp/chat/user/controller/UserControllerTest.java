@@ -1,5 +1,7 @@
 package com.chatapp.chat.user.controller;
 
+import com.chatapp.chat.security.JwtAuthenticationFilter;
+import com.chatapp.chat.security.JwtUtils;
 import com.chatapp.chat.user.User;
 import com.chatapp.chat.user.UserService;
 import com.chatapp.chat.user.dto.UserRegistrationRequest;
@@ -13,13 +15,15 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.context.annotation.Import;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.util.UUID;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @WebMvcTest(UserController.class)
 @AutoConfigureMockMvc(addFilters = false)
@@ -34,6 +38,12 @@ class UserControllerTest {
 
     @Autowired
     private ObjectMapper objectMapper;
+
+    @MockitoBean
+    JwtAuthenticationFilter jwtAuthenticationFilter;
+
+    @MockitoBean
+    JwtUtils jwtUtils;
 
     @Test
     @DisplayName("POST /api/users/register should return 201 Created with UserResponse")
