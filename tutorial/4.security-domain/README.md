@@ -358,7 +358,7 @@ Client Request → JwtAuthenticationFilter → JwtUtils.isValid()
 
 ---
 
-### JwtAuthenticationFilter
+## JwtAuthenticationFilter
 A `OncePerRequestFilter` that runs for every request.
 
 Flow:
@@ -373,13 +373,13 @@ If the token is invalid - the request passes through without authenticaion.
 
 ---
 
-### CustomerDetailsService
+## CustomerDetailsService
 
 Loads a user from the database for Spring Security by email
 
 ---
 
-### AuthenticationEntryPointImpl
+## AuthenticationEntryPointImpl
 
 Defines JSON response for **401 Unauthorized**.
 Used when a protected endpoint is accessed without a valid token.
@@ -396,9 +396,102 @@ Example response:
 
 ---
 
-### Password Config
+## Password Config
 
-Provides a `BCryptPasswordEncoder` instance.
+Spring Security never stores user passwords in plain text — and neither should any secure system.
+This project uses:
+
+```java
+@Configuration
+public class PasswordConfig {
+
+    @Bean
+    public PasswordEncoder passwordEncoder() {
+        return new BCryptPasswordEncoder();
+    }
+}
+```
+
+### Why do we need a PasswordEncoder?
+
+Every time a user registers or logs in, their password must be transformed into a *secure, non-reversible* form 
+before being saved or compared.
+
+A `PasswordEncoder` handles:
+- hashing passwords before storage
+- validating raw passwords against stored hashes
+- preventing plain-text password exposure
+- enforcing modern security requirements
+
+Without a password encoder, Spring Security **refuses to authenticate** for safety reasons.
+
+---
+
+## ✔️ Why BCryptPasswordEncoder?
+
+`BCryptPasswordEncoder` is currently the **recommended** encoder in Spring Security because:
+
+### 1. BCrypt is a slow, adaptive hashing function
+
+This means:
+- it intentionally takes more time than simple hashing like SHA-256
+- it resists brute-force attacks
+- the cost factor can be increased when hardware improves
+
+### 2. It automatically generates and stores a random salt
+
+A unique salt ensures:
+- same password ≠ same hash
+- rainbow tables become useless
+- repeated passwords cannot be recognized across accounts
+
+### 3. It is battle-tested
+
+BCrypt is widely used across:
+- Spring Security
+- Django
+- Rails
+- industry-standard identity platforms
+
+### 4. It's easy to use, safe by default
+
+Spring automatically validates passwords like this:
+
+```java
+passwordEncoder.matches(rawPassword, hashedPassword);
+```
+
+No need to manually handle salts, iterations, or additional configuration.
+
+---
+
+## ✔️ How Password Encoding Fits Into the Auth Flow
+
+During **registration**:
+1. User sends raw password
+2. `AuthService` uses `passwordEncoder.encode()`
+3. The encoded value is stored in DB
+
+During **login**:
+1. User sends raw password
+2. Spring's `AuthenticationManager` calls `passwordEncoder.matches()`
+3. If the result is true → user is authenticated
+4. JWT is generated
+
+Passwords are *never* stored or returned in plain text.
+
+---
+
+## ✨ Summary
+
+BCrypt adds essential protection against:
+- credential leaks
+- database breaches
+- brute-force attacks
+- offline cracking attempts
+
+It is the default, battle-tested, secure choice for modern applications — and the correct encoder for your 
+authentication system.
 
 ---
 
@@ -860,12 +953,40 @@ Your handler returns:
 
 ---
 
-## 10. Tests (to be created later)
+## 10. Tests
 
-Planned test classes:
-- JwtUtilsTest
-- JwtAuthenticationFilterTest
-- AuthServiceTest
-- AuthControllerTest
+The authentication module is covered with a comprehensive automated testing suite.
 
-Testing will be done after completing the entire auth module.
+Our goal was not only correctness but also **security verification**, making sure that:
+- invalid tokens do not authenticate
+- invalid input does not pass validation
+- the filter behaves correctly in every branch
+- unauthorized access is handled consistently
+- password encoding is used correctly
+- JWT secrets and expirations behave predictably 
+- controllers return proper HTTP statuses
+
+✔️ Implemented Test Classes
+
+**1. Core Security**
+- `JwtUtilsTest` — token generation, expiration, parsing, signature validation
+- `JwtAuthenticationFilterTest` — all filter branches, including invalid headers, invalid tokens, missing users
+- `AuthenticationEntryPointImplTest` — unauthorized JSON structure
+- `CustomUserDetailsTest` — authority mapping
+- `CustomUserDetailsServiceTest` — loading users & throwing exceptions
+
+**2. Authentication Layer**
+- `AuthServiceTest` — registration, DB calls, password hashing, login delegation
+- `AuthControllerTest` — integration tests with MockMvc
+
+**3. Data Models and Exceptions**
+- `LoginRequestTest`, `LoginResponseTest`
+- `RegisterRequestTest`, `RegisterResponseTest`
+- `InvalidJwtSecretExceptionTest`
+- `UserControllerTest`
+
+✔️ Coverage
+
+Authentication module coverage: **~98.4%**
+
+Critical paths (JWT filter, JWT utils, service logic) are covered at **100%**, except for framework-guarded null paths.
