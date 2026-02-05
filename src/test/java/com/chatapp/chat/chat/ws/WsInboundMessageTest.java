@@ -1,46 +1,35 @@
-package com.chatapp.chat.chat;
-
+package com.chatapp.chat.chat.ws;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-class ChatMessageTest {
+class WsInboundMessageTest {
 
     @Test
     @DisplayName("Should correctly set and get fields")
     void shouldSetAndGetFields() {
         // given
-        ChatMessage msg = new ChatMessage();
-
-        // when
+        WsInboundMessage msg = new WsInboundMessage();
         msg.setChatId("chat-123");
-        msg.setSender("alice");
         msg.setContent("Hello!");
-        msg.setType(ChatMessageType.CHAT);
 
         // then
         assertThat(msg.getChatId()).isEqualTo("chat-123");
-        assertThat(msg.getSender()).isEqualTo("alice");
         assertThat(msg.getContent()).isEqualTo("Hello!");
-        assertThat(msg.getType()).isEqualTo(ChatMessageType.CHAT);
     }
 
     @Test
-    @DisplayName("Should generate proper equals/hashCode with Lombok")
+    @DisplayName("Should implement equals/hashCode correctly")
     void shouldRespectEqualsAndHashCode() {
         // given
-        ChatMessage m1 = new ChatMessage();
-        m1.setChatId("c1");
-        m1.setSender("bob");
+        WsInboundMessage m1 = new WsInboundMessage();
+        m1.setChatId("room");
         m1.setContent("hi");
-        m1.setType(ChatMessageType.JOIN);
 
-        ChatMessage m2 = new ChatMessage();
-        m2.setChatId("c1");
-        m2.setSender("bob");
+        WsInboundMessage m2 = new WsInboundMessage();
+        m2.setChatId("room");
         m2.setContent("hi");
-        m2.setType(ChatMessageType.JOIN);
 
         // then
         assertThat(m1).isEqualTo(m2).hasSameHashCodeAs(m2);
@@ -50,17 +39,14 @@ class ChatMessageTest {
     @DisplayName("Should include fields in toString()")
     void shouldGenerateToString() {
         // given
-        ChatMessage msg = new ChatMessage();
-        msg.setChatId("xyz");
-        msg.setSender("john");
+        WsInboundMessage msg = new WsInboundMessage();
+        msg.setChatId("abc");
         msg.setContent("Test");
-        msg.setType(ChatMessageType.LEAVE);
 
         // when
         String ts = msg.toString();
 
         // then
-        assertThat(ts).contains("xyz", "john", "Test", "LEAVE");
+        assertThat(ts).contains("abc", "Test");
     }
-
 }

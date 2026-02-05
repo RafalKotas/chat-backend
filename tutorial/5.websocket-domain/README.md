@@ -2,8 +2,16 @@
 
 This section describes how real-time communication is implemented in the application using **WebSockets, STOMP**, and 
 **Spring Messaging.**<br>
-It is intended for both backend and frontend developers, providing a complete overview of message flow, authentication, 
-available destinations, and server-side responsibilities.
+It explains message flow, authentication, routing, DTO structures, and how backend and frontend components interact.
+
+Document applies to:
+
+- `WsChatController`
+- `WsInboundMessage / WsOutboundMessage`
+- `WsMessageType`
+- `WebSocketConfig`
+- `JwtChannelInterceptor (optional)`
+- `REST history (MessageController)`
 
 ---
 
@@ -50,15 +58,9 @@ const client = new Client({
 
 ## 3. Message Routing Model
 
-### 3.1 Application Destinations
+### 3.1 Client → Server (`/app/**`)
 
-Messages sent from clients to the server go through:
-
-```
-/app/**
-```
-
-These map to controller methods annotated with `@MessageMapping`.
+All client-sent messages must use the `/app` prefix.
 
 Available application destinations:
 
@@ -67,9 +69,11 @@ Available application destinations:
 | `/app/chat.sendMessage` | `ChatController.sendMessage()` | Send text message to a chat         |
 | `/app/chat.addUser`     | `ChatController.addUser()`     | Notify that a user joined the chat  |
 
+These map to `@MessageMapping`.
+
 ---
 
-### 3.2 Broadcast Destinations
+### 3.2 Server → Clients (`/topic/**`)
 
 The server broadcasts messages to all subscribers via:
 
@@ -83,13 +87,17 @@ Clients must subscribe to this topic to receive updates:
 client.subscribe("/topic/chat.room-1", callback);
 ```
 
+Every broadcast uses **WsOutboundMessage**.
+
 ---
 
-## 4. Message Types & Structure
+## 4. WebSocket Message Types & DTOs
 
-Messages exchanged through STOMP use a shared structure represented by:
+WebSocket communication uses two DTOs:
 
-`ChatMessage`
+### Inbound (from client):
+
+#### `WsInboundMessage`
 
 ```
 {
@@ -100,10 +108,26 @@ Messages exchanged through STOMP use a shared structure represented by:
 }
 ```
 
-The `type` field uses the `ChatMessageType` enum:
-- `CHAT` - standard user message
-- `JOIN` - user joins a room
-- `LEAVE` - user leaves a room
+### Outbound (to clients):
+
+#### `WsOutboundMessage` (typically includes server-added metadata)
+
+```json
+{
+"id": "uuid",
+"chatId": "room-1",
+"sender": "Alice",
+"content": "Hello!",
+"type": "CHAT",
+"timestamp": "2026-02-04T19:22:00Z"
+}
+```
+
+Message Type Enum: WsMessageType
+
+- `CHAT` — standard user message
+- `JOIN` — a user joined
+- `LEAVE` — a user left (future)
 
 ---
 
@@ -117,22 +141,23 @@ When a client sends:
 SEND /app/chat.sendMessage
 ```
 
-The server:
-1. Logs the incoming message.
-2. Converts it into a `Message` JPA entity.
-3. Persists it in the database.
-4. Broadcasts the original `ChatMessage` to:
+Backend (in `WsChatController.sendMessage()`):
+1. Receives `WsInboundMessage`
+2. Logs the event
+3. Saves it as a `Message` JPA entity (database)
+4. Builds `WsOutboundMessage` with metadata
+5. Broadcasts to:
 ```
 /topic/chat.{chatId}
 ```
 
-All connected clients receive the message instantly.
+All connected clients receive it instantly.
 
 ---
 
-### 5.2 User Joins Chat
+### 5.2 User Join Event
 
-When a client sends:
+Client triggers:
 
 ```
 SEND /app/chat.addUser
@@ -149,21 +174,22 @@ The server:
 This allows the UI to show notifications like:
 > "Alice joined the room"
 
+JOIN events are **not persisted**.
+
 ---
 
 ## 6. JWT Authentication (Optional but Recommended)
 
-The HTTP REST API uses normal Spring Security filters,<br>
-but WebSocket connections do **not** automatically inherit JWT validation.
+By default, Spring Security’s HTTP filters **do not protect WebSocket connections**.
 
 To secure WebSocket connections, we can enable the `JwtChannelInterceptor`.
 
 This interceptor:
 
 1. Reads the `Authorization` header during `CONNECT`.
-2. Extract the JWT token.
+2. Extract the JWT token (`Authorization: Bearer <token>`).
 3. Validates it with `JwtUtils`.
-4. If valid — sets `SecurityContext` user.
+4. If valid — sets `SecurityContext` user, attach authenticated `Principal` to session.
 5. If invalid — rejects the connection (`return null`).
 
 Clients must then connect with:
@@ -179,7 +205,7 @@ If the interceptor is not enabled, WebSocket messages remain unauthenticated.
 
 ## 7. Chat History Retrieval
 
-WebSockets deliver *real-time* messages only.<br>
+WebSockets deliver **real-time messages only**.<br>
 Historical messages are obtained via REST:
 
 ```
@@ -203,9 +229,10 @@ Example:
 ```
 
 Typical UI flow:
-1. Load history via HTTP.
-2. Subscribe to WebSocket topic.
-3. Append new messages live.
+1. Load history via REST
+2. Connect WebSocket
+3. Subscribe to `/topic/chat.{chatId}`
+4. Receive new messages live
 
 ---
 
@@ -220,8 +247,8 @@ Client -------------------------> Server
    |--- SUBSCRIBE /topic/chat.X ---->|
    |                                 |
    |--- SEND /app/chat.sendMessage ->|
-   |                                 |  Server saves to DB
-   |                                 |  Server broadcasts
+   | Server saves to DB              |  
+   | WsOutboundMessage               |  
    |<---------- MESSAGE -------------|
 ```
 
@@ -254,8 +281,10 @@ This architecture ensures:
 ## 10. Future Improvements
 The current WebSocket module is a solid MVP.<br>
 Possible enhancements:
-- Presence tracking (online/offline status)
-- Typing indicators
-- Private messaging channels
-- Chat-level authorization rules
-- Replacing SimpleBroker with RabbitMQ/Redis for scaling
+- Typing indicators (`TYPING` WsMessageType)
+- Read receipts
+- Private 1:1 channels
+- Presence/status tracking
+- Switching SimpleBroker to RabbitMQ / Redis for scalability
+- Message editing / deletion
+- Chat-level permissions

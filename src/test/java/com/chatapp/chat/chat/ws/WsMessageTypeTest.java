@@ -1,4 +1,4 @@
-package com.chatapp.chat.chat;
+package com.chatapp.chat.chat.ws;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -6,7 +6,7 @@ import org.junit.jupiter.api.Test;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-class ChatMessageTypeTest {
+class WsMessageTypeTest {
 
     @Test
     @DisplayName("Should contain exactly CHAT, JOIN, LEAVE values")
@@ -15,14 +15,14 @@ class ChatMessageTypeTest {
         // enum is static, no setup needed
 
         // when
-        ChatMessageType[] values = ChatMessageType.values();
+        WsMessageType[] values = WsMessageType.values();
 
         // then
         assertThat(values)
                 .containsExactly(
-                        ChatMessageType.CHAT,
-                        ChatMessageType.JOIN,
-                        ChatMessageType.LEAVE
+                        WsMessageType.CHAT,
+                        WsMessageType.JOIN,
+                        WsMessageType.LEAVE
                 );
     }
 
@@ -33,14 +33,14 @@ class ChatMessageTypeTest {
         // no setup
 
         // when
-        ChatMessageType chat = ChatMessageType.valueOf("CHAT");
-        ChatMessageType join = ChatMessageType.valueOf("JOIN");
-        ChatMessageType leave = ChatMessageType.valueOf("LEAVE");
+        WsMessageType chat = WsMessageType.valueOf("CHAT");
+        WsMessageType join = WsMessageType.valueOf("JOIN");
+        WsMessageType leave = WsMessageType.valueOf("LEAVE");
 
         // then
-        assertThat(chat).isEqualTo(ChatMessageType.CHAT);
-        assertThat(join).isEqualTo(ChatMessageType.JOIN);
-        assertThat(leave).isEqualTo(ChatMessageType.LEAVE);
+        assertThat(chat).isEqualTo(WsMessageType.CHAT);
+        assertThat(join).isEqualTo(WsMessageType.JOIN);
+        assertThat(leave).isEqualTo(WsMessageType.LEAVE);
     }
 
     @Test
@@ -50,7 +50,7 @@ class ChatMessageTypeTest {
         String invalidName = "INVALID";
 
         // when + then
-        assertThatThrownBy(() -> ChatMessageType.valueOf(invalidName))
+        assertThatThrownBy(() -> WsMessageType.valueOf(invalidName))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining(invalidName);
     }
