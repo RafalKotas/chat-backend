@@ -52,9 +52,6 @@ public class WsChatController {
     @MessageMapping("/chat.addUser")
     public void addUser() {
 
-        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-        String username = (auth != null) ? auth.getName() : "anonymous";
-
         WsOutboundMessage outbound = WsOutboundMessage.builder()
                 .type(WsMessageType.JOIN)
                 .data(null)
