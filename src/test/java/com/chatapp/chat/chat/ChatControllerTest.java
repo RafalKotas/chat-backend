@@ -1,94 +1,165 @@
 package com.chatapp.chat.chat;
 
 import com.chatapp.chat.chat._testconfig.MockedSecurityConfig;
-import com.chatapp.chat.chat.message.Message;
-import com.chatapp.chat.chat.message.MessageService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.context.annotation.Import;
-import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.springframework.test.web.servlet.MockMvc;
 
+import java.util.List;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-@Import(MockedSecurityConfig.class)
 @WebMvcTest(ChatController.class)
+@AutoConfigureMockMvc(addFilters = false)
+@Import(MockedSecurityConfig.class)
 class ChatControllerTest {
 
-    @MockitoBean
-    SimpMessagingTemplate simpMessagingTemplate;
+    @Autowired
+    MockMvc mockMvc;
 
     @MockitoBean
-    MessageService messageService;
+    ChatService chatService;
 
-    ChatController subject;
+    Chat exampleChat;
 
     @BeforeEach
     void setUp() {
-        subject = new ChatController(simpMessagingTemplate, messageService);
-    }
-
-    @Test
-    @DisplayName("sendMessage() should save message and forward it to the correct topic")
-    void shouldSaveMessageAndForward() {
-        // given
-        ChatMessage incoming = new ChatMessage();
-        incoming.setChatId("room-1");
-        incoming.setSender("Alice");
-        incoming.setContent("Hello!");
-
-        Message savedEntity = Message.builder()
+        exampleChat = Chat.builder()
                 .id(UUID.randomUUID())
-                .chatId("room-1")
-                .content("Hello!")
+                .name("Test Chat")
+                .type(ChatType.GROUP)
+                .participants(List.of())
                 .build();
-
-        when(messageService.save(any(Message.class))).thenReturn(savedEntity);
-
-        // when
-        subject.sendMessage(incoming);
-
-        // then
-        ArgumentCaptor<Message> messageCaptor = ArgumentCaptor.forClass(Message.class);
-
-        verify(messageService).save(messageCaptor.capture());
-        Message savedArg = messageCaptor.getValue();
-
-        assertThat(savedArg.getChatId()).isEqualTo("room-1");
-        assertThat(savedArg.getSender()).isEqualTo("Alice");
-        assertThat(savedArg.getContent()).isEqualTo("Hello!");
-
-        verify(simpMessagingTemplate).convertAndSend(
-                "/topic/chat.room-1",
-                incoming
-        );
     }
 
     @Test
-    @DisplayName("addUser() should set type JOIN and broadcast message to correct topic")
-    void shouldSetJoinTypeAndBroadcast() {
+    @DisplayName("POST /api/chats/direct — should create a direct chat")
+    void shouldCreateDirectChat() throws Exception {
         // given
-        ChatMessage msg = new ChatMessage();
-        msg.setChatId("room-22");
-        msg.setSender("bob");
+        UUID u1 = UUID.randomUUID();
+        UUID u2 = UUID.randomUUID();
+        when(chatService.createDirectChat(any(), any())).thenReturn(exampleChat);
 
-        // when
-        subject.addUser(msg);
+        // when / then (HTTP)
+        mockMvc.perform(post("/api/chats/direct")
+                        .contentType("application/json")
+                        .content("""
+                                {
+                                  "user1": "%s",
+                                  "user2": "%s"
+                                }
+                                """.formatted(u1, u2)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.name").value("Test Chat"))
+                .andExpect(jsonPath("$.type").value("GROUP"));
+
+        // then (service interaction)
+        ArgumentCaptor<UUID> captor1 = ArgumentCaptor.forClass(UUID.class);
+        ArgumentCaptor<UUID> captor2 = ArgumentCaptor.forClass(UUID.class);
+
+        verify(chatService).createDirectChat(captor1.capture(), captor2.capture());
+
+        assertThat(captor1.getValue()).isEqualTo(u1);
+        assertThat(captor2.getValue()).isEqualTo(u2);
+    }
+
+    @Test
+    @DisplayName("POST /api/chats/group — should create group chat")
+    void shouldCreateGroupChat() throws Exception {
+        // given
+        UUID creator = UUID.randomUUID();
+        when(chatService.createGroupChat(any(), any())).thenReturn(exampleChat);
+
+        // when / then (HTTP)
+        mockMvc.perform(post("/api/chats/group")
+                        .queryParam("creatorId", creator.toString())
+                        .contentType("application/json")
+                        .content("""
+                                { "name": "MyGroup" }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.name").value("Test Chat"));
+
+        // then (business call)
+        ArgumentCaptor<String> nameCap = ArgumentCaptor.forClass(String.class);
+        ArgumentCaptor<UUID> creatorCap = ArgumentCaptor.forClass(UUID.class);
+
+        verify(chatService).createGroupChat(nameCap.capture(), creatorCap.capture());
+        assertThat(nameCap.getValue()).isEqualTo("MyGroup");
+        assertThat(creatorCap.getValue()).isEqualTo(creator);
+    }
+
+    @Test
+    @DisplayName("POST /api/chats/{chatId}/participants/{userId} — should add user to group")
+    void shouldAddUserToGroup() throws Exception {
+        // given
+        UUID chatId = UUID.randomUUID();
+        UUID userId = UUID.randomUUID();
+
+        // when / then
+        mockMvc.perform(post("/api/chats/" + chatId + "/participants/" + userId))
+                .andExpect(status().isOk());
+
+        // then (verify)
+        verify(chatService).addUserToGroup(chatId, userId);
+    }
+
+    @Test
+    @DisplayName("DELETE /api/chats/{chatId}/participants/{userId} — should remove user from group")
+    void shouldRemoveUserFromGroup() throws Exception {
+        // given
+        UUID chatId = UUID.randomUUID();
+        UUID userId = UUID.randomUUID();
+
+        // when / then
+        mockMvc.perform(delete("/api/chats/" + chatId + "/participants/" + userId))
+                .andExpect(status().isOk());
 
         // then
-        assertThat(msg.getType()).isEqualTo(ChatMessageType.JOIN);
+        verify(chatService).removeUserFromGroup(chatId, userId);
+    }
 
-        verify(simpMessagingTemplate).convertAndSend(
-                "/topic/chat.room-22",
-                msg
-        );
+    @Test
+    @DisplayName("GET /api/chats/{chatId} — should return chat details")
+    void shouldGetChat() throws Exception {
+        // given
+        UUID id = UUID.randomUUID();
+        exampleChat.setId(id);
+
+        when(chatService.getChat(id)).thenReturn(exampleChat);
+
+        // when / then
+        mockMvc.perform(get("/api/chats/" + id))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(id.toString()))
+                .andExpect(jsonPath("$.name").value("Test Chat"));
+    }
+
+    @Test
+    @DisplayName("GET /api/chats/user/{userId} — should return chat list")
+    void shouldGetUserChats() throws Exception {
+        // given
+        UUID userId = UUID.randomUUID();
+
+        when(chatService.getUserChats(userId)).thenReturn(List.of(exampleChat));
+
+        // when / then
+        mockMvc.perform(get("/api/chats/user/" + userId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].name").value("Test Chat"));
     }
 }

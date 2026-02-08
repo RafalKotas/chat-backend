@@ -1,49 +1,51 @@
 package com.chatapp.chat.chat;
 
-import com.chatapp.chat.chat.message.Message;
-import com.chatapp.chat.chat.message.MessageService;
+import com.chatapp.chat.chat.dto.*;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.messaging.handler.annotation.MessageMapping;
-import org.springframework.messaging.handler.annotation.Payload;
-import org.springframework.messaging.simp.SimpMessagingTemplate;
-import org.springframework.stereotype.Controller;
+import org.springframework.web.bind.annotation.*;
 
-@Slf4j
-@Controller
+import java.util.List;
+import java.util.UUID;
+
+@RestController
+@RequestMapping("/api/chats")
 @RequiredArgsConstructor
 public class ChatController {
 
-    private final SimpMessagingTemplate messagingTemplate;
+    private final ChatService chatService;
 
-    private final MessageService messageService;
-
-    @MessageMapping("/chat.sendMessage")
-    public void sendMessage(@Payload ChatMessage message) {
-
-        log.debug("Received WS message: {}", message);
-
-        Message saved = messageService.save(
-                Message.builder()
-                        .chatId(message.getChatId())
-                        .sender(message.getSender())
-                        .content(message.getContent())
-                        .build()
-        );
-
-        messagingTemplate.convertAndSend(
-                "/topic/chat." + saved.getChatId(),
-                message
-        );
+    @PostMapping("/direct")
+    public ChatResponse createDirect(@RequestBody CreateDirectChatRequest req) {
+        Chat chat = chatService.createDirectChat(req.user1(), req.user2());
+        return ChatResponse.fromEntity(chat);
     }
 
-    @MessageMapping("/chat.addUser")
-    public void addUser(@Payload ChatMessage chatMessage) {
-        chatMessage.setType(ChatMessageType.JOIN);
+    @PostMapping("/group")
+    public ChatResponse createGroup(@RequestBody CreateGroupChatRequest req,
+                                    @RequestParam UUID creatorId) {
+        Chat chat = chatService.createGroupChat(req.name(), creatorId);
+        return ChatResponse.fromEntity(chat);
+    }
 
-        messagingTemplate.convertAndSend(
-                "/topic/chat." + chatMessage.getChatId(),
-                chatMessage
-        );
+    @PostMapping("/{chatId}/participants/{userId}")
+    public void addUser(@PathVariable UUID chatId, @PathVariable UUID userId) {
+        chatService.addUserToGroup(chatId, userId);
+    }
+
+    @DeleteMapping("/{chatId}/participants/{userId}")
+    public void removeUser(@PathVariable UUID chatId, @PathVariable UUID userId) {
+        chatService.removeUserFromGroup(chatId, userId);
+    }
+
+    @GetMapping("/{chatId}")
+    public ChatResponse getChat(@PathVariable UUID chatId) {
+        return ChatResponse.fromEntity(chatService.getChat(chatId));
+    }
+
+    @GetMapping("/user/{userId}")
+    public List<ChatResponse> getUserChats(@PathVariable UUID userId) {
+        return chatService.getUserChats(userId).stream()
+                .map(ChatResponse::fromEntity)
+                .toList();
     }
 }
