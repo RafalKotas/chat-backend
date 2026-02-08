@@ -1,5 +1,9 @@
 package com.chatapp.chat.common.exception;
 
+import com.chatapp.chat.chat.exception.AlreadyInChatException;
+import com.chatapp.chat.chat.exception.ChatNotFoundException;
+import com.chatapp.chat.chat.exception.UnauthorizedChatOperationException;
+import com.chatapp.chat.chat.exception.UserNotInChatException;
 import com.chatapp.chat.user.exception.EmailAlreadyUsedException;
 import com.chatapp.chat.user.exception.UsernameAlreadyUsedException;
 import org.springframework.http.HttpStatus;
@@ -13,14 +17,27 @@ import java.util.Map;
 @ControllerAdvice
 public class GlobalExceptionHandler {
 
-    @ExceptionHandler(EmailAlreadyUsedException.class)
-    public ResponseEntity<Object> handleEmailAlreadyUsed(EmailAlreadyUsedException ex) {
-        return buildResponse(HttpStatus.BAD_REQUEST, ex.getMessage());
-    }
+    @ExceptionHandler({
+            EmailAlreadyUsedException.class,
+            UsernameAlreadyUsedException.class,
+            AlreadyInChatException.class,
+            UnauthorizedChatOperationException.class,
+            ChatNotFoundException.class,
+            UserNotInChatException.class
+    })
+    public ResponseEntity<Object> handleDomainExceptions(RuntimeException ex) {
 
-    @ExceptionHandler(UsernameAlreadyUsedException.class)
-    public ResponseEntity<Object> handleUsernameAlreadyUsed(UsernameAlreadyUsedException ex) {
-        return buildResponse(HttpStatus.BAD_REQUEST, ex.getMessage());
+        HttpStatus status = switch (ex) {
+            case EmailAlreadyUsedException e -> HttpStatus.BAD_REQUEST;
+            case UsernameAlreadyUsedException e -> HttpStatus.BAD_REQUEST;
+            case AlreadyInChatException e -> HttpStatus.CONFLICT;
+            case UnauthorizedChatOperationException e -> HttpStatus.FORBIDDEN;
+            case ChatNotFoundException e -> HttpStatus.NOT_FOUND;
+            case UserNotInChatException e -> HttpStatus.NOT_FOUND;
+            default -> HttpStatus.INTERNAL_SERVER_ERROR;
+        };
+
+        return buildResponse(status, ex.getMessage());
     }
 
     @ExceptionHandler(Exception.class)
@@ -40,3 +57,4 @@ public class GlobalExceptionHandler {
         );
     }
 }
+
